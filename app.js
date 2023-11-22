@@ -29,7 +29,7 @@ connectDb(DATABASE_URI)
 app.use(express.json())
 
 // Load routes
-app.use('/api/user',userRoutes)
+app.use('/api/v1/users',userRoutes)
 
 // app.listen(port,()=>{
 //     console.log('Server is running on port',port)

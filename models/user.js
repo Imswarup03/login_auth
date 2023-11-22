@@ -23,6 +23,9 @@ const userSchema = new mongoose.Schema({
         required:true,
         // default:false
     }// terms and conditions
+    
+},{
+    timestamps:true
 })
 
 // Model

@@ -8,7 +8,6 @@ import transporter  from "../config/email_config.js";
 class UserController{
     static userRegistration = async(req,res)=>{
         const {name,email,password,password_confirmation,tc}=req.body;
-        console.log("request",req.body)
         if (name && email && password && password_confirmation && tc){
             console.log(name,email,password,password_confirmation,tc)
             const user = await UserModel.findOne({email:email});
@@ -71,7 +70,7 @@ class UserController{
                     if ((user.email=== email) && isMatch){
                         //generate JWT
                         const token = jwt.sign({userId:user._id},process.env.JWT_SECRET_KEY,{expiresIn:'5d'})
-                        res.status(200).send({"Status":"Success","Message":"Login Successful","statusCode":200,"token":token})
+                        res.status(200).send({"Status":"Success","Message":"Login Successful","statusCode":200,"token":token,"id":user._id})
                     }else{
                         res.send({"Status":"Failed","Message":"Invalid Credentials"})
                     }
@@ -80,13 +79,13 @@ class UserController{
                 }
         }
         else{
-            console.log("Body",req.body)
+            // console.log("Body",req.body)
             res.send({"Status":"Failed","Message":"All fields are required","statusCode":400})
         }
     }
     catch(error){
         console.log(error);
-        res.status(400).send({"Status":"Failed","Message":"Unale to login"})
+        res.status(400).send({"Status":"Failed","Message":"Unable to login"})
     }
 }
     static changeUserPassword =async(req,res)=>{
@@ -117,7 +116,9 @@ class UserController{
         }
     }
     static loggedUser =async(req,res)=>{
-        res.send(req.user)
+        // const {user,email}=req.body
+        // console.log("user",user)
+        res.send({"Status":"Success","Message":"User logged in successfully","user":req.user,"email":req.email})
     }
 
     static sendUserResetEmail = async(req,res)=>{
@@ -131,7 +132,7 @@ class UserController{
                 console.log("user",user)
                 const secret= user._id + process.env.JWT_SECRET_KEY
                 const token = jwt.sign({email:email,userId:user._id},secret,{expiresIn:'15m'})
-                const link = `http://localhost:3000/api/user/reset/${user._id}/${token}`
+                const link = `http://localhost:3000/api/user/reset-password/${token}`
                 console.log("click below link to reset password",link)
                 //send email
                 try{
@@ -162,16 +163,16 @@ class UserController{
     static resetUserPassword = async(req,res)=>{
         const {password,password_confirmation} = req.body;
         console.log("request",req.body)
-        const {id,token} = req.params
-        if (password && password_confirmation && id&& token){
+        const {token} = req.params
+        if (password && password_confirmation && token){
+            const decoded = jwt.verify(token,process.env.JWT_SECRET_KEY)
+            id = decoded.userId
             const user= await UserModel.findById(id)
             if (!user){
                 res.send({"Status":"Failed","Message":"Invalid link"})
             }
             else{
-                const newSecret = user._id +process.env.JWT_SECRET_KEY
                 try{
-                    jwt.verify(token,newSecret)
                     if (password===password_confirmation){
                         const salt = await bcrypt.genSalt(10);
                         const newhashPassword= await bcrypt.hash(password,salt);
@@ -193,10 +194,44 @@ class UserController{
         }
     }
 
+    static deleteUser= async(req,res)=>{
+        const authorization=req.headers.authorization.split(' ')[1].trim()
+        console.log(req.headers)
+        const decodedToken = jwt.verify(authorization, process.env.JWT_SECRET_KEY);
+        const id = decodedToken.userId;
+        console.log(id)
+        if (id && authorization ){
+            const user = await UserModel.findById(id)
+            console.log(user)
+            if(!user){
+                res.status(200).send({"Status":"Failed","Message":"User does not exist"})
+            }
+            else{
+                try{
+                    await UserModel.findByIdAndDelete(user._id)
+                    res.status(200).send({"Status":"Success","Message":"User deleted successfully"})
+                }catch(error){
+                console.log("error",error)
+                res.send({"Status":"Failed","Message":error})
+            }
+            }
+        }
+    }
+    static logoutUser = async(req,res)=>{
+        try{
+            // /Assuming you have access to the token when logging out
+            const tokenToRevoke = req.headers.authorization.split(' ')[1];
+            const decodedToken = jwt.verify(tokenToRevoke, process.env.JWT_SECRET_KEY);
+            res.send({"Status":"Success","Message":"Logged out successfully"})
+        }
+        catch(error){
+            console.log("error",error)
+            res.send({"Status":"Failed","Message":error})
+        }
+    }
+
 
 }
-
-
 
 
 export default UserController;
